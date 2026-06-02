@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Day 2: Docker Advanced & K8s Architecture</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f0f2f5; }
+        .header { text-align: center; background: #326ce5; color: white; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+        .question-card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .question-text { font-weight: bold; font-size: 1.1em; margin-bottom: 15px; }
+        .option { display: block; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+        .option:hover { background-color: #eef2ff; border-color: #326ce5; }
+        .analysis { display: none; margin-top: 15px; padding: 15px; border-radius: 4px; border-left: 5px solid #326ce5; background-color: #e7f3ff; font-size: 0.95em; }
+        .correct-label { color: #2e7d32; font-weight: bold; margin-bottom: 10px; display: block; }
+        input[type="radio"] { margin-right: 10px; }
+        .back-link { display: inline-block; margin-bottom: 20px; color: #326ce5; text-decoration: none; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">← Back to Menu</a>
+
+<div class="header">
+    <h1>Day 2 Challenge</h1>
+    <p>Docker Tagging, Layering & Kubernetes Architecture</p>
+</div>
+
+<div id="quiz-container"></div>
+
+<script>
+const questions = [
+    {
+        q: "A developer builds an image and tags it using 'docker tag my-app:v1.0 my-repo/my-app:prod'. Which statement correctly describes the result of this command?",
+        options: {
+            A: "A new physical copy of the image is created, doubling the disk space usage.",
+            B: "The 'v1.0' tag is deleted and replaced by the 'prod' tag.",
+            C: "A new alias is created pointing to the same Image ID; both tags share the same underlying layers.",
+            D: "The image is automatically pushed to the 'my-repo' registry."
+        },
+        correct: "C",
+        analysis: "OPTION-A: This is a distractor. Tags are pointers, not physical copies; they do not duplicate storage. OPTION-B: This is a distractor. The original tag remains unless explicitly removed. OPTION-C: Correct. Tagging is simply creating a reference (alias) to an existing Image ID. OPTION-D: This is a distractor. 'docker tag' only labels the image locally; 'docker push' is required to upload it."
+    },
+    {
+        q: "When discussing Docker Layering, why is it recommended to combine multiple commands into a single 'RUN' instruction (e.g., RUN apt-get update && apt-get install -y)?",
+        options: {
+            A: "To reduce the number of read-only layers and keep the final image size smaller.",
+            B: "To ensure that the commands run faster during the build process.",
+            C: "Because Docker can only handle a maximum of 10 layers per image.",
+            D: "To ensure the image is compatible with Kubernetes Pods."
+        },
+        correct: "A",
+        analysis: "OPTION-A: Correct. Each RUN instruction creates a new layer. Combining them prevents temporary files (like package caches) from being saved into an intermediate layer. OPTION-B: This is a distractor. Combining commands doesn't significantly change execution speed. OPTION-C: This is a distractor. While there is a limit (127 layers in some storage drivers), the main goal is size, not hitting a limit. OPTION-D: This is a distractor. K8s doesn't care about the internal layering of a container."
+    },
+    {
+        q: "In Kubernetes architecture, which component is responsible for maintaining the desired state of the cluster, such as ensuring the correct number of pods are running?",
+        options: {
+            A: "kube-scheduler",
+            B: "kube-controller-manager",
+            C: "etcd",
+            ...{D: "kubelet"}
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. The scheduler only decides *where* (which node) a pod should go. OPTION-B: Correct. The Controller Manager runs control loops that watch the state and make changes to move the current state toward the desired state. OPTION-C: This is a distractor. etcd is just the database that stores the state; it doesn't take action. OPTION-D: This is a distractor. The kubelet manages pods on a specific node, not cluster-wide desired states."
+    },
+    {
+        q: "Which Kubernetes Master component acts as the primary interface for all cluster communication? (All other components communicate through this).",
+        options: {
+            A: "kube-proxy",
+            B: "Cloud Controller Manager",
+            C: "kube-apiserver",
+            D: "CoreDNS"
+        },
+        correct: "C",
+        analysis: "OPTION-A: This is a distractor. Kube-proxy runs on worker nodes for networking. OPTION-B: This is a distractor. This manages integrations with cloud providers (AWS/GCP). OPTION-C: Correct. The API Server is the 'hub' of Kubernetes; all tools (kubectl) and components talk only to it. OPTION-D: This is a distractor. CoreDNS provides service discovery, not cluster management."
+    },
+    {
+        q: "You are installing Kubernetes. You use 'kubectl' to interact with the cluster. Where is 'kubectl' typically installed according to best practices?",
+        options: {
+            A: "Only on the Master Node.",
+            B: "On every Worker Node to allow containers to talk to the API.",
+            C: "On the administrator's local machine (workstation) to send commands to the API Server.",
+            D: "Inside the etcd database container."
+        },
+        correct: "C",
+        analysis: "OPTION-A: This is a distractor. While it can be on the master, it's not the primary place for an admin to use it. OPTION-B: This is a distractor. Worker nodes use the 'kubelet' to talk to the API, not kubectl. OPTION-C: Correct. kubectl is a client-side CLI tool for administrators to manage clusters remotely. OPTION-D: This is a distractor. etcd does not run CLI tools."
+    },
+    {
+        q: "What is the primary function of the 'kubelet' component on a Worker Node?",
+        options: {
+            A: "To load-balance traffic across multiple pods.",
+            B: "To act as the 'agent' that receives pod specifications and ensures containers are running.",
+            C: "To store the configuration data for the entire cluster.",
+            D: "To assign IP addresses to the worker nodes."
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. Load balancing is handled by kube-proxy and Services. OPTION-B: Correct. The kubelet is the agent that watches the API server for PodSpecs assigned to its node and talks to the container runtime. OPTION-C: This is a distractor. Storage is the job of etcd on the master. OPTION-D: This is a distractor. Node IP assignment is usually handled by the host OS or cloud provider."
+    },
+    {
+        q: "In Kubernetes, what is the smallest deployable unit that can be created and managed?",
+        options: {
+            A: "Container",
+            B: "Pod",
+            C: "Deployment",
+            D: "Namespace"
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. While a pod contains containers, Kubernetes does not manage containers directly; it wraps them in pods. OPTION-B: Correct. A Pod is the atomic unit in K8s. OPTION-C: This is a distractor. A Deployment is a higher-level object that manages Pods. OPTION-D: This is a distractor. A Namespace is a virtual boundary for organizing objects."
+    },
+    {
+        q: "Multiple containers running inside the same Pod share which of the following?",
+        options: {
+            A: "The same Process ID (PID) namespace by default.",
+            B: "Network IP and Storage Volumes.",
+            C: "The same root file system.",
+            D: "Individual CPU limits that cannot be shared."
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. While it *can* be enabled, PID namespaces are isolated by default for containers in a pod. OPTION-B: Correct. All containers in a pod share the same Network namespace (localhost) and can share volumes. OPTION-C: This is a distractor. Each container has its own file system based on its image. OPTION-D: This is a distractor. Resource limits are set per container, but they don't 'share' them in the way they share the network."
+    },
+    {
+        q: "How does Kubernetes link a Service to a set of Pods?",
+        options: {
+            A: "By using the Pod's unique IP address in the configuration.",
+            B: "Through 'Labels' and 'Selectors'.",
+            C: "By the order in which the Pods were created.",
+            D: "By the container name defined in the Dockerfile."
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. Pod IPs are ephemeral (change frequently), so using them is bad practice. OPTION-B: Correct. Services use Selectors to find Pods that have matching Labels. OPTION-C: This is a distractor. Order of creation is irrelevant. OPTION-D: This is a distractor. Dockerfile names have no impact on K8s Service discovery."
+    },
+    {
+        q: "Which component is known as the 'Single Source of Truth' for the Kubernetes cluster?",
+        options: {
+            A: "kube-apiserver",
+            B: "kube-scheduler",
+            C: "etcd",
+            D: "Container Runtime"
+        },
+        correct: "C",
+        analysis: "OPTION-A: This is a distractor. The API server is the *gateway*, but it doesn't store the data itself. OPTION-B: This is a distractor. The scheduler is stateless. OPTION-C: Correct. etcd is the distributed key-value store where all cluster data (state, secrets, configs) is permanently saved. OPTION-D: This is a distractor. The runtime (Docker/containerd) only manages the execution, not the cluster state."
+    }
+];
+
+function loadQuiz() {
+    const container = document.getElementById('quiz-container');
+    questions.forEach((q, index) => {
+        const qDiv = document.createElement('div');
+        qDiv.className = 'question-card';
+        qDiv.innerHTML = `
+            <div class="question-text">${index + 1}. ${q.q}</div>
+            ${Object.entries(q.options).map(([key, val]) => `
+                <label class="option">
+                    <input type="radio" name="q${index}" value="${key}" onclick="showAnalysis(${index}, '${key}')">
+                    (${key}) ${val}
+                </label>
+            `).join('')}
+            <div id="analysis-${index}" class="analysis"></div>
+        `;
+        container.appendChild(qDiv);
+    });
+}
+
+function showAnalysis(qIndex, selected) {
+    const analysisDiv = document.getElementById(`analysis-${qIndex}`);
+    const q = questions[qIndex];
+    analysisDiv.style.display = 'block';
+    analysisDiv.innerHTML = `
+        <span class="correct-label">CORRECT ANSWER: (${q.correct})</span>
+        <p><strong>DISTRACTOR ANALYSIS:</strong></p>
+        <p>${q.analysis.replace(/OPTION-/g, '<br><strong>OPTION-</strong>')}</p>
+    `;
+}
+
+loadQuiz();
+</script>
+</body>
+</html>
