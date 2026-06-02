@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docker Concept Practice - CKA/CKAD</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f4f7f9; }
+        .header { text-align: center; background: #2496ed; color: white; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+        .question-card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .question-text { font-weight: bold; font-size: 1.1em; margin-bottom: 15px; }
+        .option { display: block; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; transition: 0.3s; }
+        .option:hover { background-color: #f0f0f0; }
+        .analysis { display: none; margin-top: 15px; padding: 15px; border-radius: 4px; border-left: 5px solid #2496ed; background-color: #e7f3ff; }
+        .correct-label { color: #2e7d32; font-weight: bold; }
+        input[type="radio"] { margin-right: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Docker Concept Practice</h1>
+    <p>CKA/CKAD Pattern - Knowledge Check</p>
+</div>
+
+<div id="quiz-container"></div>
+
+<script>
+const questions = [
+    {
+        q: "An administrator needs to explain the fundamental difference between a Docker container and a Virtual Machine (VM) to a development team. Which statement best describes the architecture of a Docker container?",
+        options: {
+            A: "Containers include a full guest operating system to ensure complete isolation.",
+            B: "Containers share the host’s hardware via a Hypervisor but maintain separate kernels.",
+            C: "Containers leverage the host operating system's kernel and isolate processes through namespaces and control groups.",
+            D: "Containers are hardware-level abstractions that turn a single server into multiple servers."
+        },
+        correct: "C",
+        analysis: "OPTION-A: This describes a VM, not a container. OPTION-B: Containers do not use a hypervisor; they use the host kernel. OPTION-C: Correct. Docker uses Linux kernel features like Namespaces and Cgroups for isolation. OPTION-D: Containers are OS-level abstractions, not hardware-level."
+    },
+    {
+        q: "You are optimizing a Dockerfile for a Python application. You want to ensure that the application always starts with a specific script, but you also want to allow users to pass additional arguments at runtime. Which combination is most appropriate?",
+        options: {
+            A: 'Use CMD ["python", "app.py"] only.',
+            B: 'Use ENTRYPOINT ["python", "app.py"] and CMD ["--help"].',
+            C: 'Use RUN python app.py at the end of the Dockerfile.',
+            D: 'Use ENTRYPOINT python app.py without any CMD.'
+        },
+        correct: "B",
+        analysis: "OPTION-A: Providing runtime arguments would overwrite the entire CMD, failing to run the app. OPTION-B: Correct. ENTRYPOINT defines the command, and CMD provides default arguments that can be overridden. OPTION-C: RUN executes during build time, not runtime. OPTION-D: Shell form of ENTRYPOINT ignores runtime arguments and doesn't handle OS signals well."
+    },
+    {
+        q: "A developer has several stopped containers and unused images taking up disk space. Which single command removes all stopped containers, unused networks, and dangling images?",
+        options: {
+            A: "docker container rm $(docker ps -aq)",
+            B: "docker system prune",
+            C: "docker image rm -f $(docker images -q)",
+            D: 'docker rmi $(docker images -f "dangling=true" -q)'
+        },
+        correct: "B",
+        analysis: "OPTION-A: Only removes containers, not images or networks. OPTION-B: Correct. This is the official cleanup command for all unused objects. OPTION-C: Forcibly removes all images but ignores containers and networks. OPTION-D: Only removes dangling images."
+    },
+    {
+        q: "To leverage Docker's layer caching mechanism effectively, what is the best practice when ordering instructions in a Dockerfile?",
+        options: {
+            A: "Place instructions that change frequently (like COPY . .) as early as possible.",
+            B: "Always run apt-get update in a separate RUN instruction before apt-get install.",
+            C: "Place stable instructions (like installing OS dependencies) at the top and frequently changing code at the bottom.",
+            D: "Combine all COPY and RUN instructions into a single line to maximize the cache."
+        },
+        correct: "C",
+        analysis: "OPTION-A: This invalidates the cache for all following steps every time code changes. OPTION-B: This is an anti-pattern that leads to stale package caches. OPTION-C: Correct. Docker caches layers from top to bottom; stable layers should come first. OPTION-D: This makes the cache too 'chunky' and hard to reuse."
+    },
+    {
+        q: "You need to run a web server container and make it accessible on your host at port 8080. The server inside the container listens on port 80. Which flag is correct?",
+        options: {
+            A: "-p 80:8080",
+            B: "-p 8080:80",
+            C: "--expose 8080",
+            D: "--network host"
+        },
+        correct: "B",
+        analysis: "OPTION-A: This maps host port 80 to container port 8080 (wrong direction). OPTION-B: Correct. Syntax is HostPort:ContainerPort. OPTION-C: Expose is for documentation, it doesn't map ports to the host. OPTION-D: This removes isolation and maps all ports, which is not specific to 8080."
+    },
+    {
+        q: "A developer wants to persist database data automatically without specifying a specific host path. Which type of mount should they use?",
+        options: {
+            A: "Bind Mount",
+            B: "tmpfs Mount",
+            C: "Named Volume",
+            D: "Anonymous Volume"
+        },
+        correct: "C",
+        analysis: "OPTION-A: Requires a specific host path. OPTION-B: Stores data in RAM, not persistent. OPTION-C: Correct. Named volumes are managed by Docker and persist after container deletion. OPTION-D: Harder to manage and re-attach than named volumes."
+    },
+    {
+        q: "You need to open an interactive shell inside a running container named 'backend-app'. Which command is appropriate?",
+        options: {
+            A: "docker attach backend-app",
+            B: "docker run -it backend-app /bin/sh",
+            C: "docker exec -it backend-app /bin/sh",
+            D: "docker inspect backend-app"
+        },
+        correct: "C",
+        analysis: "OPTION-A: Attaches to the main process, not a new shell. OPTION-B: Starts a brand NEW container instead of entering the existing one. OPTION-C: Correct. Exec runs a new process in a running container. OPTION-D: Only shows JSON metadata."
+    },
+    {
+        q: "When writing a Dockerfile, why is COPY generally preferred over ADD for bringing in local files?",
+        options: {
+            A: "COPY can download files from remote URLs.",
+            B: "COPY supports automatic extraction of compressed tar files.",
+            C: "COPY is more transparent and only supports basic copying of local files.",
+            D: "ADD is deprecated and will be removed soon."
+        },
+        correct: "C",
+        analysis: "OPTION-A: This is a feature of ADD. OPTION-B: This is a feature of ADD. OPTION-C: Correct. Best practices suggest COPY because it avoids the 'magic' features of ADD that cause confusion. OPTION-D: ADD is not deprecated, just discouraged for simple tasks."
+    },
+    {
+        q: "A CI/CD pipeline builds an image and tags it as webapp:latest. A week later, a new version is built with the same tag. What happens to the old image?",
+        options: {
+            A: "It is automatically deleted.",
+            B: "It remains on the system but its tag becomes <none>:<none>.",
+            C: "It is overwritten and the data is lost.",
+            D: "Docker creates a backup like webapp:latest.bak."
+        },
+        correct: "B",
+        analysis: "OPTION-A: Docker never deletes images automatically. OPTION-B: Correct. It becomes a dangling image. OPTION-C: The layers remain on disk; only the tag is moved. OPTION-D: Docker has no automatic backup tagging."
+    },
+    {
+        q: "You want to ensure a container does not consume more than 512MB of RAM. Which flag should you use?",
+        options: {
+            A: "--memory-reservation 512m",
+            B: "--cpus 0.5",
+            C: "--memory 512m",
+            D: "--storage-opt size=512m"
+        },
+        correct: "C",
+        analysis: "OPTION-A: This is a soft limit, not a hard enforcement. OPTION-B: This limits CPU, not RAM. OPTION-C: Correct. This sets the hard limit for memory usage. OPTION-D: This limits disk space, not RAM."
+    }
+];
+
+function loadQuiz() {
+    const container = document.getElementById('quiz-container');
+    questions.forEach((q, index) => {
+        const qDiv = document.createElement('div');
+        qDiv.className = 'question-card';
+        qDiv.innerHTML = `
+            <div class="question-text">${index + 1}. ${q.q}</div>
+            ${Object.entries(q.options).map(([key, val]) => `
+                <label class="option">
+                    <input type="radio" name="q${index}" value="${key}" onclick="showAnalysis(${index}, '${key}')">
+                    (${key}) ${val}
+                </label>
+            `).join('')}
+            <div id="analysis-${index}" class="analysis"></div>
+        `;
+        container.appendChild(qDiv);
+    });
+}
+
+function showAnalysis(qIndex, selected) {
+    const analysisDiv = document.getElementById(`analysis-${qIndex}`);
+    const q = questions[qIndex];
+    analysisDiv.style.display = 'block';
+    analysisDiv.innerHTML = `
+        <p class="correct-label">CORRECT ANSWER: (${q.correct})</p>
+        <p><strong>DISTRACTOR ANALYSIS:</strong></p>
+        <p>${q.analysis.replace(/OPTION-/g, '<br><strong>OPTION-</strong>')}</p>
+    `;
+}
+
+loadQuiz();
+</script>
+</body>
+</html>
