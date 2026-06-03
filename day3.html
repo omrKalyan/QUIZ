@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Day 3: Controllers, Services & Deployments</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f0f2f5; }
+        .header { text-align: center; background: #ce5e09; color: white; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+        .question-card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .question-text { font-weight: bold; font-size: 1.1em; margin-bottom: 15px; }
+        .option { display: block; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+        .option:hover { background-color: #fff7ed; border-color: #ce5e09; }
+        .analysis { display: none; margin-top: 15px; padding: 15px; border-radius: 4px; border-left: 5px solid #ce5e09; background-color: #fffaf0; font-size: 0.95em; }
+        .correct-label { color: #c2410c; font-weight: bold; margin-bottom: 10px; display: block; }
+        input[type="radio"] { margin-right: 10px; }
+        .back-link { display: inline-block; margin-bottom: 20px; color: #ce5e09; text-decoration: none; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">← Back to Menu</a>
+
+<div class="header">
+    <h1>Day 3 Challenge</h1>
+    <p>Controllers, Services, Rolling Updates & Rollbacks</p>
+</div>
+
+<div id="quiz-container"></div>
+
+<script>
+const questions = [
+    {
+        q: "A developer needs to ensure that a logging agent Pod runs on every single node in the cluster, including new nodes added in the future. Which controller is best suited for this?",
+        options: {
+            A: "ReplicaSet",
+            B: "Deployment",
+            C: "DaemonSet",
+            D: "Job"
+        },
+        correct: "C",
+        analysis: "OPTION-A: This is a distractor. A ReplicaSet ensures a specific *number* of pods run, but it doesn't guarantee one per node. OPTION-B: This is a distractor. Deployments manage scaling and updates, not node-specific placement. OPTION-C: Correct. A DaemonSet automatically adds a Pod to every node (or a subset) as they are joined to the cluster. OPTION-D: This is a distractor. Jobs are for one-time tasks that run to completion."
+    },
+    {
+        q: "What is the primary technical advantage of using a 'ReplicaSet' over the older 'ReplicationController'?",
+        options: {
+            A: "ReplicaSet supports rolling updates natively without a Deployment.",
+            B: "ReplicaSet supports set-based label selectors (e.g., 'env in (prod, qa)'), while ReplicationController only supports equality-based selectors.",
+            C: "ReplicaSet is the only controller that can manage Pods on multiple nodes.",
+            D: "ReplicationController is restricted to only one Pod, while ReplicaSet supports many."
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. Rolling updates are handled by the Deployment controller, which manages ReplicaSets. OPTION-B: Correct. The main upgrade in ReplicaSet is the ability to use complex label selection logic. OPTION-C: This is a distractor. Both can manage Pods across multiple nodes. OPTION-D: This is a distractor. Both are designed to manage multiple replicas."
+    },
+    {
+        q: "You have a batch process script that needs to run exactly once until it finishes successfully. If the Pod fails, it should restart until the task is done. Which object should you use?",
+        options: {
+            A: "ReplicaSet",
+            B: "CronJob",
+            C: "Job",
+            D: "StatefulSet"
+        },
+        correct: "C",
+        analysis: "OPTION-A: This is a distractor. A ReplicaSet will restart a Pod indefinitely even if it completes successfully (it wants to maintain the count). OPTION-B: This is a distractor. CronJobs are for tasks that repeat on a schedule (e.g., every Monday). OPTION-C: Correct. A Job creates Pods that run until a specified number of successful completions is reached. OPTION-D: This is a distractor. StatefulSets are for applications requiring stable identities and persistent storage."
+    },
+    {
+        q: "By default, which Service type is used if no 'type' is specified in the YAML manifest? This service is only reachable from within the cluster.",
+        options: {
+            A: "NodePort",
+            B: "LoadBalancer",
+            C: "ExternalName",
+            D: "ClusterIP"
+        },
+        correct: "D",
+        analysis: "OPTION-A: This is a distractor. NodePort opens a port on every Node IP and is used for external access. OPTION-B: This is a distractor. LoadBalancer integrates with cloud providers to expose services externally. OPTION-C: This is a distractor. ExternalName maps a service to a DNS name. OPTION-D: Correct. ClusterIP is the default and provides an internal-only IP address."
+    },
+    {
+        q: "You want to expose your web application to the internet using a high-port (between 30000-32767) on each Worker Node's IP address. Which Service type should you choose?",
+        options: {
+            A: "ClusterIP",
+            B: "NodePort",
+            C: "Ingress",
+            D: "HostNetwork"
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. ClusterIP is only internal. OPTION-B: Correct. NodePort exposes the service on each Node's IP at a static port in the 30000-32767 range. OPTION-C: This is a distractor. Ingress is a collection of rules to route traffic, but it sits *on top* of a Service. OPTION-D: This is a distractor. HostNetwork is a Pod configuration, not a Service type."
+    },
+    {
+        q: "A company is using a Cloud Provider (like AWS or GCP). They want Kubernetes to automatically provision a cloud-based Load Balancer to route traffic to their pods. Which Service type provides this integration?",
+        options: {
+            A: "NodePort",
+            B: "LoadBalancer",
+            C: "ClusterIP",
+            D: "EndpointSlice"
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. While NodePort is often the foundation, it doesn't automatically create a Cloud provider's load balancer. OPTION-B: Correct. The 'LoadBalancer' type triggers the cloud controller to create a provider-specific LB (like an ELB). OPTION-C: This is a distractor. ClusterIP is internal only. OPTION-D: This is a distractor. EndpointSlices track the network endpoints of a service."
+    },
+    {
+        q: "You just updated the image of a Deployment. The new version is crashing, and you want to immediately revert to the previous working version. Which command should you use?",
+        options: {
+            A: "kubectl delete deployment <name> && kubectl apply -f old-file.yaml",
+            B: "kubectl rollout undo deployment <name>",
+            C: "kubectl scale deployment <name> --replicas=0",
+            D: "kubectl rollout pause deployment <name>"
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. This works but causes downtime; there is a native, faster way. OPTION-B: Correct. 'rollout undo' instantly reverts the Deployment to the previous revision in the history. OPTION-C: This is a distractor. Scaling to zero stops the app but doesn't fix the version issue. OPTION-D: This is a distractor. Pausing stops the rollout in its current state but doesn't revert changes."
+    },
+    {
+        q: "During a Deployment 'RollingUpdate', which parameter controls the maximum number of Pods that can be created above the desired replica count?",
+        options: {
+            A: "maxUnavailable",
+            B: "minReadySeconds",
+            C: "maxSurge",
+            D: "progressDeadlineSeconds"
+        },
+        correct: "C",
+        analysis: "OPTION-A: This is a distractor. 'maxUnavailable' defines how many pods can be taken down during the update. OPTION-B: This is a distractor. This defines how long a pod must be ready before it's considered 'available'. OPTION-C: Correct. 'maxSurge' specifies how many extra pods can be created during the rollout. OPTION-D: This is a distractor. This is the timeout for a deployment to be considered 'failed'."
+    },
+    {
+        q: "You have a Deployment with 10 replicas. You set the strategy to 'Recreate'. What happens when you update the image?",
+        options: {
+            A: "Kubernetes kills all 10 old pods simultaneously before starting any new ones.",
+            B: "Kubernetes replaces pods one by one to ensure zero downtime.",
+            C: "Kubernetes starts 10 new pods and then deletes the 10 old ones.",
+            D: "Kubernetes updates the code inside the running pods without restarting them."
+        },
+        correct: "A",
+        analysis: "OPTION-A: Correct. The 'Recreate' strategy causes downtime because it terminates all existing pods before starting new versions. OPTION-B: This is a distractor. This describes the 'RollingUpdate' strategy. OPTION-C: This is a distractor. This would be a high-surge RollingUpdate, not Recreate. OPTION-D: This is a distractor. Container images are immutable; they always require a restart/re-creation to update."
+    },
+    {
+        q: "Which command would you use to view the history of revisions for a deployment named 'webapp'?",
+        options: {
+            A: "kubectl get deployment webapp -o yaml",
+            B: "kubectl rollout status deployment webapp",
+            C: "kubectl rollout history deployment webapp",
+            D: "kubectl describe replicaSet webapp"
+        },
+        correct: "C",
+        analysis: "OPTION-A: This is a distractor. This shows the current configuration, not the history of changes. OPTION-B: This is a distractor. This shows the progress of the *current* rollout only. OPTION-C: Correct. 'rollout history' lists all revisions that Kubernetes has saved for that deployment. OPTION-D: This is a distractor. While ReplicaSets are used behind the scenes for history, 'describe' isn't the standard way to view the rollout timeline."
+    }
+];
+
+function loadQuiz() {
+    const container = document.getElementById('quiz-container');
+    questions.forEach((q, index) => {
+        const qDiv = document.createElement('div');
+        qDiv.className = 'question-card';
+        qDiv.innerHTML = `
+            <div class="question-text">${index + 1}. ${q.q}</div>
+            ${Object.entries(q.options).map(([key, val]) => `
+                <label class="option">
+                    <input type="radio" name="q${index}" value="${key}" onclick="showAnalysis(${index}, '${key}')">
+                    (${key}) ${val}
+                </label>
+            `).join('')}
+            <div id="analysis-${index}" class="analysis"></div>
+        `;
+        container.appendChild(qDiv);
+    });
+}
+
+function showAnalysis(qIndex, selected) {
+    const analysisDiv = document.getElementById(`analysis-${qIndex}`);
+    const q = questions[qIndex];
+    analysisDiv.style.display = 'block';
+    analysisDiv.innerHTML = `
+        <span class="correct-label">CORRECT ANSWER: (${q.correct})</span>
+        <p><strong>DISTRACTOR ANALYSIS:</strong></p>
+        <p>${q.analysis.replace(/OPTION-/g, '<br><strong>OPTION-</strong>')}</p>
+    `;
+}
+
+loadQuiz();
+</script>
+</body>
+</html>
