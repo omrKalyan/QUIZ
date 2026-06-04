@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Day 4: K8s Storage & Advanced Scheduling</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f0f4f8; }
+        .header { text-align: center; background: #00796b; color: white; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+        .question-card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .question-text { font-weight: bold; font-size: 1.1em; margin-bottom: 15px; }
+        .option { display: block; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+        .option:hover { background-color: #e0f2f1; border-color: #00796b; }
+        .analysis { display: none; margin-top: 15px; padding: 15px; border-radius: 4px; border-left: 5px solid #00796b; background-color: #f1f8f7; font-size: 0.95em; }
+        .correct-label { color: #004d40; font-weight: bold; margin-bottom: 10px; display: block; }
+        input[type="radio"] { margin-right: 10px; }
+        .back-link { display: inline-block; margin-bottom: 20px; color: #00796b; text-decoration: none; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">← Back to Menu</a>
+
+<div class="header">
+    <h1>Day 4 Challenge</h1>
+    <p>Volumes (PV/PVC), hostPath, and Node Affinity Scheduling</p>
+</div>
+
+<div id="quiz-container"></div>
+
+<script>
+const questions = [
+    {
+        q: "A developer uses an 'emptyDir' volume to share data between two containers in the same Pod. What happens to the data if the Pod is deleted but the Worker Node remains healthy?",
+        options: {
+            A: "The data is persisted on the Node's disk and can be recovered by a new Pod.",
+            B: "The data is moved to the etcd database for high availability.",
+            C: "The data is deleted forever as the volume lifecycle is tied to the Pod.",
+            D: "The data remains in the Node's RAM but is inaccessible."
+        },
+        correct: "C",
+        analysis: "OPTION-A: This is a distractor. Unlike Persistent Volumes, emptyDir is transient and does not survive Pod deletion. OPTION-B: This is a distractor. etcd only stores metadata and small configurations, not file systems. OPTION-C: Correct. The 'emptyDir' volume is created when a Pod is assigned to a Node and exists as long as that Pod is running. OPTION-D: This is a distractor. While emptyDir can be configured to use RAM (Medium: Memory), it is still wiped when the Pod terminates."
+    },
+    {
+        q: "You need to mount a specific file from the host's filesystem (e.g., /var/log/syslog) into a Pod for monitoring. Which volume type is most appropriate?",
+        options: {
+            A: "emptyDir",
+            B: "PersistentVolumeClaim",
+            C: "hostPath",
+            D: "ConfigMap"
+        },
+        correct: "C",
+        analysis: "OPTION-A: This is a distractor. emptyDir creates a new empty folder, it cannot point to existing host files. OPTION-B: This is a distractor. A PVC is used for abstracting storage, usually for database data, not host-specific files. OPTION-C: Correct. 'hostPath' mounts a file or directory from the host node's filesystem into your Pod. OPTION-D: This is a distractor. ConfigMaps are for configuration data, not for mounting existing logs from a host node."
+    },
+    {
+        q: "When using a 'gitRepo' volume, what happens if the code in the remote Git repository is updated after the Pod has already started?",
+        options: {
+            A: "The Pod automatically pulls the latest changes every 60 seconds.",
+            B: "The Pod must be deleted and recreated to see the updated code.",
+            C: "The kubelet sends a signal to the container to perform a 'git pull'.",
+            D: "The volume becomes read-only and prevents updates."
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. gitRepo does not have a sync/watch mechanism. OPTION-B: Correct. A gitRepo volume clones the repository only when the Pod is being initialized. It does not stay in sync. OPTION-C: This is a distractor. Kubelet does not manage git operations inside running containers. OPTION-D: This is a distractor. The volume is generally writable, but it simply won't reflect remote changes without a restart."
+    },
+    {
+        q: "What is the primary purpose of a 'PersistentVolumeClaim' (PVC) in the Kubernetes storage model?",
+        options: {
+            A: "To define the actual physical disk path on the storage server.",
+            B: "To act as a request for storage by a developer, without needing to know the details of the underlying storage provider.",
+            C: "To automatically back up data to a different cloud region.",
+            D: "To limit the maximum number of files that a container can write."
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. Defining the physical path is the job of the Persistent Volume (PV). OPTION-B: Correct. A PVC is an abstraction. The developer says 'I need 5GB', and K8s matches it with a suitable PV. OPTION-C: This is a distractor. K8s storage objects manage mounting, not automated backup logic. OPTION-D: This is a distractor. PVCs define total capacity (size), not the number of files."
+    },
+    {
+        q: "An administrator deletes a PVC. The associated Persistent Volume (PV) has its 'reclaimPolicy' set to 'Retain'. What is the status of the PV and the data after the PVC is gone?",
+        options: {
+            A: "The PV is deleted, and the data is lost.",
+            B: "The PV status becomes 'Available' and can be immediately reused by another PVC.",
+            C: "The PV status becomes 'Released', but the data remains on the disk and the PV cannot be reused until manually cleaned.",
+            D: "The PV remains 'Bound' because deletion is blocked."
+        },
+        correct: "C",
+        analysis: "OPTION-A: This is a distractor. This would be the 'Delete' policy. OPTION-B: This is a distractor. A 'Released' PV still contains data from the previous owner and cannot be 'Available' automatically for security reasons. OPTION-C: Correct. 'Retain' keeps the data intact, but requires an admin to manually reclaim the PV. OPTION-D: This is a distractor. The PVC is deleted, so the binding is broken."
+    },
+    {
+        q: "You want to force a Pod to run on a specific node named 'worker-02' for troubleshooting. You do not want the Scheduler to make any decisions. Which field should you use in the Pod specification?",
+        options: {
+            A: "nodeSelector",
+            B: "nodeName",
+            C: "nodeAffinity",
+            D: "tolerations"
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. nodeSelector uses labels and still involves the scheduler. OPTION-B: Correct. 'nodeName' bypasses the scheduler entirely and assigns the pod directly to the named node. OPTION-C: This is a distractor. Node Affinity is a scheduling rule, not a direct override. OPTION-D: This is a distractor. Tolerations allow a pod to stay on a node with 'Taints', but don't force it to a specific one."
+    },
+    {
+        q: "A cluster has nodes labeled with 'disktype=ssd' and 'disktype=hdd'. You want a Pod to only run on nodes with SSDs. What is the simplest way to achieve this?",
+        options: {
+            A: "Use nodeName: ssd",
+            B: "Use a nodeSelector with the label disktype: ssd",
+            C: "Use an Ingress rule to route the Pod to SSD nodes.",
+            D: "Use a hostPath volume to force the Pod onto the SSD."
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. nodeName requires a specific node name, not a label value. OPTION-B: Correct. nodeSelector is the simplest method to constrain pods to nodes with particular labels. OPTION-C: This is a distractor. Ingress handles external traffic routing, not Pod placement. OPTION-D: This is a distractor. hostPath doesn't control scheduling; if the pod lands on an HDD node, it will just mount the HDD path."
+    },
+    {
+        q: "Which Node Affinity type should you use if you want a Pod to PREFER certain nodes, but still allow it to run elsewhere if those nodes are unavailable?",
+        options: {
+            A: "requiredDuringSchedulingIgnoredDuringExecution",
+            B: "preferredDuringSchedulingIgnoredDuringExecution",
+            C: "requiredDuringSchedulingRequiredDuringExecution",
+            D: "preferredDuringExecutionIgnoredDuringScheduling"
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. This is a 'Hard' requirement (must match). OPTION-B: Correct. This is a 'Soft' requirement (try to match, but okay if not). OPTION-C: This is a distractor. This type does not currently exist in standard Kubernetes. OPTION-D: This is a distractor. The naming convention is always 'Scheduling' first, then 'Execution'."
+    },
+    {
+        q: "Inside a Node Affinity configuration, you want to match nodes that have a specific key 'zone', and the value must be either 'us-east-1a' or 'us-east-1b'. Which operator should you use?",
+        options: {
+            A: "Exists",
+            B: "Gt (Greater Than)",
+            C: "In",
+            D: "DoesNotExist"
+        },
+        correct: "C",
+        analysis: "OPTION-A: This is a distractor. 'Exists' only checks if the key is present, ignoring the value. OPTION-B: This is a distractor. 'Gt' is for numeric comparisons. OPTION-C: Correct. The 'In' operator checks if the label value matches any value in a provided list. OPTION-D: This is a distractor. This checks for the absence of a label."
+    },
+    {
+        q: "When using Node Affinity, what does the 'IgnoredDuringExecution' part of the name imply?",
+        options: {
+            A: "If node labels change after the Pod is already running, the Pod will continue to run and will NOT be evicted.",
+            B: "The scheduler will ignore the rule if the cluster is under heavy load.",
+            C: "The Pod will ignore its own resource limits while running.",
+            D: "The node will ignore any taints applied to it."
+        },
+        correct: "A",
+        analysis: "OPTION-A: Correct. It means the affinity rule is only checked during the 'Scheduling' phase. Once the pod is running, changing the node labels doesn't affect it. OPTION-B: This is a distractor. The scheduler always respects affinity rules. OPTION-C: This is a distractor. Resource limits are independent of scheduling affinity. OPTION-D: This is a distractor. Taints and Affinity are separate mechanisms."
+    }
+];
+
+function loadQuiz() {
+    const container = document.getElementById('quiz-container');
+    questions.forEach((q, index) => {
+        const qDiv = document.createElement('div');
+        qDiv.className = 'question-card';
+        qDiv.innerHTML = `
+            <div class="question-text">${index + 1}. ${q.q}</div>
+            ${Object.entries(q.options).map(([key, val]) => `
+                <label class="option">
+                    <input type="radio" name="q${index}" value="${key}" onclick="showAnalysis(${index}, '${key}')">
+                    (${key}) ${val}
+                </label>
+            `).join('')}
+            <div id="analysis-${index}" class="analysis"></div>
+        `;
+        container.appendChild(qDiv);
+    });
+}
+
+function showAnalysis(qIndex, selected) {
+    const analysisDiv = document.getElementById(`analysis-${qIndex}`);
+    const q = questions[qIndex];
+    analysisDiv.style.display = 'block';
+    analysisDiv.innerHTML = `
+        <span class="correct-label">CORRECT ANSWER: (${q.correct})</span>
+        <p><strong>DISTRACTOR ANALYSIS:</strong></p>
+        <p>${q.analysis.replace(/OPTION-/g, '<br><strong>OPTION-</strong>')}</p>
+    `;
+}
+
+loadQuiz();
+</script>
+</body>
+</html>
