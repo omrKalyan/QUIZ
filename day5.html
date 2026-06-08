@@ -39,21 +39,21 @@ const questions = [
             D: "Role and ClusterRoleBinding"
         },
         correct: "B",
-        analysis: "OPTION-A: This is a distractor. ClusterRoleBindings apply permissions across the entire cluster, not just one namespace. OPTION-B: Correct. A 'Role' defines permissions within a namespace, and a 'RoleBinding' attaches it to a user/SA in that same namespace. OPTION-C: While technically possible to bind a ClusterRole to a namespace using a RoleBinding, OPTION B is the most direct and standard answer for namespace-scoped tasks. OPTION-D: This is a distractor. A ClusterRoleBinding cannot be used to restrict a Role's scope to a single namespace."
+        analysis: "OPTION-A: This applies permissions across the entire cluster. OPTION-B: Correct. A 'Role' and 'RoleBinding' are the standard objects for namespace-scoped permissions. OPTION-C: This works but is less standard for namespace-specific tasks. OPTION-D: This is not a valid way to restrict permissions to a single namespace."
     },
     {
         q: "What is the primary difference between a 'Role' and a 'ClusterRole' in Kubernetes RBAC?",
         options: {
             A: "A Role can only grant 'read' permissions, while a ClusterRole can grant 'write' permissions.",
             B: "A Role is namespace-scoped, while a ClusterRole is cluster-scoped (non-namespaced).",
-            /C: "Roles are used for Users, while ClusterRoles are used for ServiceAccounts.",
+            C: "Roles are used for Users, while ClusterRoles are used for ServiceAccounts.",
             D: "Roles require a password, while ClusterRoles use certificates."
         },
         correct: "B",
-        analysis: "OPTION-A: This is a distractor. Both can grant any verb (get, list, watch, create, etc.). OPTION-B: Correct. Roles exist within a namespace; ClusterRoles are for cluster-wide resources (like Nodes) or to define reusable permissions. OPTION-C: This is a distractor. Both can be bound to Users, Groups, or ServiceAccounts. OPTION-D: This is a distractor. Authentication (passwords/certs) is separate from RBAC (authorization)."
+        analysis: "OPTION-A: Both can grant any permission level. OPTION-B: Correct. Roles are for specific namespaces; ClusterRoles are for cluster-wide resources like Nodes. OPTION-C: Both can be assigned to any identity. OPTION-D: Authentication is separate from RBAC authorization."
     },
     {
-        q: "In Dynamic Volume Provisioning, which object does the administrator create to define the 'type' of storage (e.g., fast SSD vs. slow HDD) available to users?",
+        q: "In Dynamic Volume Provisioning, which object does the administrator create to define the 'type' of storage available to users?",
         options: {
             A: "PersistentVolume (PV)",
             B: "PersistentVolumeClaim (PVC)",
@@ -61,10 +61,10 @@ const questions = [
             D: "VolumeAttachment"
         },
         correct: "C",
-        analysis: "OPTION-A: This is a distractor. In dynamic provisioning, the PV is created automatically by the system, not manually by the admin. OPTION-B: This is a distractor. The PVC is created by the developer to request storage. OPTION-C: Correct. The StorageClass acts as a blueprint/template that tells K8s which provisioner to use and what parameters to pass. OPTION-D: This is a distractor. This is a low-level API object used by K8s internally to track volumes attached to nodes."
+        analysis: "OPTION-A: In dynamic provisioning, PVs are created automatically. OPTION-B: PVCs are created by developers to request storage. OPTION-C: Correct. StorageClass is the blueprint used to automate PV creation. OPTION-D: This is an internal K8s object for tracking attachments."
     },
     {
-        q: "A StatefulSet is created with 3 replicas and a service named 'db-service'. What will be the predictable network DNS name for the first Pod?",
+        q: "A StatefulSet is created with 3 replicas and a headless service named 'db-service'. What will be the predictable network DNS name for the first Pod?",
         options: {
             A: "db-service-0.pod.cluster.local",
             B: "web-app-pod-unique-hash",
@@ -72,43 +72,43 @@ const questions = [
             D: "db-service.namespace.svc.cluster.local-1"
         },
         correct: "C",
-        analysis: "OPTION-A: This is a distractor. It misses the standard naming convention required for headless services. OPTION-B: This is a distractor. This describes the random naming convention of a Deployment/ReplicaSet. OPTION-C: Correct. StatefulSets provide a stable hostname based on the [pod-name]-[ordinal].[service-name]. OPTION-D: This is a distractor. Ordinals start at 0, not 1, and the service name comes after the pod name."
+        analysis: "OPTION-A: This format is incorrect for K8s DNS. OPTION-B: This is the random format used by Deployments. OPTION-C: Correct. StatefulSets use the format [pod-name]-[ordinal].[service-name]. OPTION-D: Ordinals always start at 0."
     },
     {
-        q: "How does a StatefulSet ensure that each Pod has its own unique, dedicated storage that persists even if the Pod is rescheduled to a different node?",
+        q: "How does a StatefulSet ensure that each Pod has its own unique, dedicated storage that persists if the Pod moves nodes?",
         options: {
             A: "By using a single shared Persistent Volume for all replicas.",
             B: "By using 'volumeClaimTemplates' to create a unique PVC for each Pod ordinal.",
-            C: "By using 'emptyDir' volumes which are automatically moved between nodes.",
-            D: "By manually creating 10 different PVs before starting the StatefulSet."
+            C: "By using 'emptyDir' volumes.",
+            D: "By manually creating 10 different PVs."
         },
         correct: "B",
-        analysis: "OPTION-A: This is a distractor. Shared volumes would lead to data corruption for databases that expect exclusive access. OPTION-B: Correct. Each pod (e.g., pod-0, pod-1) gets its own PVC (e.g., data-pod-0) created from the template. OPTION-C: This is a distractor. emptyDir is deleted when the pod is deleted. OPTION-D: This is a distractor. This defeats the purpose of automation and StatefulSets."
+        analysis: "OPTION-A: Shared volumes cause data corruption in databases. OPTION-B: Correct. The template ensures every pod gets its own private, persistent disk. OPTION-C: emptyDir is deleted when a pod stops. OPTION-D: This is not automated scaling."
     },
     {
-        q: "You apply a Taint to a node: 'kubectl taint nodes node1 key1=value1:NoSchedule'. What happens to Pods already running on 'node1' that do NOT have a matching toleration?",
+        q: "You apply a Taint to a node: 'key1=value1:NoSchedule'. What happens to Pods ALREADY running on that node that do NOT have a matching toleration?",
         options: {
-            A: "They are immediately evicted and moved to other nodes.",
-            B: "They continue to run normally on 'node1'.",
+            A: "They are immediately evicted.",
+            B: "They continue to run normally.",
             C: "They are restarted but stay on the same node.",
             D: "They are deleted and not recreated."
         },
         correct: "B",
-        analysis: "OPTION-A: This is a distractor. This would only happen if the effect was 'NoExecute'. OPTION-B: Correct. 'NoSchedule' only affects *new* pods being scheduled. It does not evict existing ones. OPTION-C: This is a distractor. Taints do not trigger restarts of existing pods. OPTION-D: This is a distractor. Taints are about scheduling/eviction, not deletion without recreation."
+        analysis: "OPTION-A: This only happens with the 'NoExecute' effect. OPTION-B: Correct. 'NoSchedule' only stops new pods from arriving. OPTION-C: Taints don't cause restarts. OPTION-D: Taints only affect scheduling."
     },
     {
         q: "A pod has the following toleration: 'operator: Exists, effect: NoExecute'. What does this mean?",
         options: {
-            A: "The pod will only run on nodes that have no taints at all.",
+            A: "The pod will only run on nodes that have no taints.",
             B: "The pod can tolerate any taint key/value as long as the effect is NoExecute.",
             C: "The pod will be deleted if the node has any NoSchedule taint.",
             D: "The pod is guaranteed to be scheduled on a Master node."
         },
         correct: "B",
-        analysis: "OPTION-A: This is a distractor. Tolerations are used to *allow* pods onto tainted nodes. OPTION-B: Correct. Using 'operator: Exists' without a key means it matches any taint key, value, or effect (if specified). OPTION-C: This is a distractor. Tolerations never cause deletions; they prevent them. OPTION-D: This is a distractor. Scheduling on a master node usually involves tolerating the 'master' taint, but this toleration is not specific to masters."
+        analysis: "OPTION-A: Tolerations allow pods on tainted nodes. OPTION-B: Correct. 'Exists' means it matches any key/value pair. OPTION-C: Tolerations prevent eviction; they don't cause it. OPTION-D: This is a general toleration, not specific to masters."
     },
     {
-        q: "You want to ensure that two 'Frontend' pods are never scheduled on the same Worker Node to ensure high availability. Which scheduling feature should you use?",
+        q: "You want to ensure that two 'Frontend' pods are never scheduled on the same Worker Node. Which scheduling feature should you use?",
         options: {
             A: "Node Affinity",
             B: "Node Taints",
@@ -116,10 +116,10 @@ const questions = [
             D: "Resource Quotas"
         },
         correct: "C",
-        analysis: "OPTION-A: This is a distractor. Node Affinity is for Pod-to-Node relationships. OPTION-B: This is a distractor. Taints are for Node-to-Pod relationships (repelling pods). OPTION-C: Correct. Pod Anti-Affinity allows you to say 'don't put this pod on a node that already has a pod with label X'. OPTION-D: This is a distractor. Quotas limit total resources, not placement."
+        analysis: "OPTION-A: Node Affinity is for Pod-to-Node placement. OPTION-B: Taints repel pods based on Node properties. OPTION-C: Correct. Pod Anti-Affinity prevents pods from being near other specific pods. OPTION-D: Quotas limit usage, not placement."
     },
     {
-        q: "When configuring 'nodeAffinity', which operator is used to match a node that does NOT have a specific label?",
+        q: "When configuring 'nodeAffinity', which operator is used to match a node that does NOT have a specific label key?",
         options: {
             A: "NotIn",
             B: "DoesNotExist",
@@ -127,10 +127,10 @@ const questions = [
             D: "Exclude"
         },
         correct: "B",
-        analysis: "OPTION-A: This is a distractor. 'NotIn' checks if a label value is not in a specific list, but the label key must still exist. OPTION-B: Correct. 'DoesNotExist' matches nodes that do not have the specified label key at all. OPTION-C: This is a distractor. 'NotEqual' is not a valid operator in Node Affinity. OPTION-D: This is a distractor. 'Exclude' is not a valid operator."
+        analysis: "OPTION-A: NotIn checks values but requires the key to exist. OPTION-B: Correct. DoesNotExist checks if the label key is missing entirely. OPTION-C: Not a valid operator. OPTION-D: Not a valid operator."
     },
     {
-        q: "Which StatefulSet update strategy is the default, where Pods are replaced one by one in reverse ordinal order (from largest to smallest)?",
+        q: "Which StatefulSet update strategy is the default, where Pods are replaced one by one in reverse ordinal order?",
         options: {
             A: "Recreate",
             B: "OnDelete",
@@ -138,12 +138,14 @@ const questions = [
             D: "OrderedReady"
         },
         correct: "C",
-        analysis: "OPTION-A: This is a distractor. Recreate kills all pods at once; it's more common in Deployments. OPTION-B: This is a distractor. OnDelete only updates a pod when a user manually deletes the old pod. OPTION-C: Correct. The default 'RollingUpdate' for StatefulSets respects the ordinal order, updating N-1 before N-2. OPTION-D: This is a distractor. 'OrderedReady' is a pod management policy for scaling, not an update strategy."
+        analysis: "OPTION-A: Recreate kills all pods at once. OPTION-B: OnDelete requires manual pod deletion to update. OPTION-C: Correct. RollingUpdate is the default and updates from highest ordinal down. OPTION-D: This is a scaling policy, not an update strategy."
     }
 ];
 
 function loadQuiz() {
     const container = document.getElementById('quiz-container');
+    if (!container) return;
+    
     questions.forEach((q, index) => {
         const qDiv = document.createElement('div');
         qDiv.className = 'question-card';
@@ -172,7 +174,8 @@ function showAnalysis(qIndex, selected) {
     `;
 }
 
-loadQuiz();
+// Call the function to load the quiz
+window.onload = loadQuiz;
 </script>
 </body>
 </html>
