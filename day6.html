@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Day 6: Config, Secrets, Quotas & HPA</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #fdf2f2; }
+        .header { text-align: center; background: #d32f2f; color: white; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+        .question-card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .question-text { font-weight: bold; font-size: 1.1em; margin-bottom: 15px; }
+        .option { display: block; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+        .option:hover { background-color: #fff5f5; border-color: #d32f2f; }
+        .analysis { display: none; margin-top: 15px; padding: 15px; border-radius: 4px; border-left: 5px solid #d32f2f; background-color: #fffafa; font-size: 0.95em; }
+        .correct-label { color: #b71c1c; font-weight: bold; margin-bottom: 10px; display: block; }
+        input[type="radio"] { margin-right: 10px; }
+        .back-link { display: inline-block; margin-bottom: 20px; color: #d32f2f; text-decoration: none; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">← Back to Menu</a>
+
+<div class="header">
+    <h1>Day 6 Challenge</h1>
+    <p>Dynamic NFS, HPA, ConfigMaps, Secrets & Resource Quotas</p>
+</div>
+
+<div id="quiz-container"></div>
+
+<script>
+const questions = [
+    {
+        q: "In Dynamic Volume Provisioning for NFS, what is the role of the 'NFS Provisioner' (often run as a pod)?",
+        options: {
+            A: "It acts as the physical hard drive for the cluster.",
+            B: "It watches the API for new PVCs linked to its StorageClass and automatically creates sub-directories on the NFS server.",
+            C: "It encrypts data before it is sent to the NFS server.",
+            D: "It replaces the need for a StorageClass object."
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. The NFS server (external) is the storage; the provisioner is just the manager. OPTION-B: Correct. The provisioner automates the manual task of creating folders on the NFS share for every new PVC. OPTION-C: This is a distractor. Standard NFS provisioners do not handle encryption. OPTION-D: This is a distractor. A StorageClass is still required to bridge the PVC to the Provisioner."
+    },
+    {
+        q: "You want to implement Horizontal Pod Autoscaler (HPA) for your deployment. What is the mandatory prerequisite that must be installed in the cluster first?",
+        options: {
+            A: "Prometheus and Grafana",
+            B: "Kubernetes Dashboard",
+            C: "Metrics Server",
+            D: "Ingress Controller"
+        },
+        correct: "C",
+        analysis: "OPTION-A: While useful for visualization, they are not the native source for HPA metrics. OPTION-B: This is a distractor. The Dashboard is a UI tool. OPTION-C: Correct. The HPA queries the Metrics Server API to get CPU/Memory usage. Without it, HPA cannot function. OPTION-D: This is a distractor. Ingress handles traffic routing, not scaling."
+    },
+    {
+        q: "Which command would you use to create a ConfigMap named 'app-config' from a local file named 'settings.properties'?",
+        options: {
+            A: "kubectl create configmap app-config --from-literal=settings.properties",
+            B: "kubectl create configmap app-config --from-file=settings.properties",
+            C: "kubectl apply configmap app-config settings.properties",
+            D: "kubectl set configmap settings.properties"
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. --from-literal is for key-value pairs (e.g., color=red). OPTION-B: Correct. --from-file reads the entire content of a file into the ConfigMap. OPTION-C: This is a distractor. 'apply' is for YAML manifests, not for building objects from files. OPTION-D: This is not a valid Kubernetes command."
+    },
+    {
+        q: "A pod is using a Secret as an environment variable. If you update the Secret value in Kubernetes, what happens to the value inside the running container?",
+        options: {
+            A: "The value is updated instantly within the running process.",
+            B: "The pod is automatically restarted by Kubernetes to pick up the change.",
+            C: "The value remains unchanged; environment variables are only injected at container startup.",
+            D: "The container crashes due to a checksum mismatch."
+        },
+        correct: "C",
+        analysis: "OPTION-A: This is a distractor. Environment variables are static once a process starts. OPTION-B: This is a distractor. K8s does not restart pods when Secrets/ConfigMaps change. OPTION-C: Correct. Env variables are 'set and forget'. To see the update, you must manually restart the pod (e.g., rollout restart). OPTION-D: This is a distractor. No crash occurs, just an outdated value."
+    },
+    {
+        q: "What is the primary security concern regarding Kubernetes Secrets in their default state?",
+        options: {
+            A: "They are encrypted with a password that everyone knows.",
+            B: "They are only Base64 encoded, not encrypted, meaning anyone with API access can read them.",
+            C: "They can only be read by the root user of the Master node.",
+            D: "They are deleted every time the cluster restarts."
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. There is no default password. OPTION-B: Correct. Base64 is an encoding format for binary data, not a security measure. Encryption at rest must be configured separately. OPTION-C: This is a distractor. Anyone with 'get secrets' RBAC permission can see them. OPTION-D: This is a distractor. Secrets are persistent in etcd."
+    },
+    {
+        q: "An administrator creates a ResourceQuota in the 'dev' namespace with 'hard: pods: 5'. A developer tries to create a 6th pod. What happens?",
+        options: {
+            A: "The pod is created but stays in 'Pending' status indefinitely.",
+            B: "The pod is created but is immediately killed by the OOMKiller.",
+            C: "The API Server rejects the request with a '403 Forbidden' error (Quota exceeded).",
+            D: "The oldest pod in the namespace is deleted to make room."
+        },
+        correct: "C",
+        analysis: "OPTION-A: This is a distractor. Quotas are checked by the Admission Controller before the pod is even saved. OPTION-B: This is a distractor. OOMKiller is for memory limits, not object counts. OPTION-C: Correct. Quotas are enforced at the API level; the request is blocked immediately. OPTION-D: This is a distractor. Kubernetes does not auto-delete healthy pods to satisfy quotas."
+    },
+    {
+        q: "To use HPA to scale a deployment based on CPU usage, what must be defined in the Deployment's Pod template?",
+        options: {
+            A: "A Liveness Probe.",
+            B: "Resource 'requests' for CPU.",
+            C: "A NodeSelector.",
+            D: "A ServiceAccount."
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is for health checking, not scaling. OPTION-B: Correct. HPA calculates the percentage of usage based on the 'request'. If no request is set, HPA cannot calculate the utilization and won't scale. OPTION-C: This is for scheduling placement. OPTION-D: This is for permissions."
+    },
+    {
+        q: "You mount a ConfigMap as a volume into a pod at '/etc/config'. If you update the ConfigMap, what happens to the files inside that directory in the pod?",
+        options: {
+            A: "The files are never updated until the pod is deleted.",
+            B: "The files are updated automatically (usually within a minute or two).",
+            C: "The files are deleted to prevent configuration drift.",
+            D: "The pod's file system becomes read-only and errors out."
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. This only applies to environment variables. OPTION-B: Correct. The kubelet periodically syncs mounted volumes. If the ConfigMap changes, the files in the volume are updated eventually. OPTION-C: This is a distractor. OPTION-D: Mounted CM volumes are read-only, but they don't cause errors upon update."
+    },
+    {
+        q: "A ResourceQuota can limit which of the following?",
+        options: {
+            A: "Only CPU and Memory usage.",
+            B: "Total number of Pods, Services, and PVCs in a namespace.",
+            C: "The speed of the internet connection for a Pod.",
+            D: "The number of users who can run 'kubectl' commands."
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. While it does limit CPU/Memory, it can also limit object counts. OPTION-B: Correct. ResourceQuotas can limit total compute resources and the total number of K8s objects in a namespace. OPTION-C: This is a distractor. Network bandwidth is managed by CNI plugins, not Quotas. OPTION-D: This is a distractor. User limits are managed via RBAC."
+    },
+    {
+        q: "You need to store a database password. Which object type is specifically designed for this sensitive information?",
+        options: {
+            A: "ConfigMap",
+            B: "PersistentVolume",
+            C: "Secret",
+            D: "Service"
+        },
+        correct: "C",
+        analysis: "OPTION-A: This is a distractor. ConfigMaps are for non-sensitive data (plain text). OPTION-B: This is for storage. OPTION-C: Correct. Secrets are the standard way to hold sensitive data like passwords, keys, and tokens. OPTION-D: This is for networking."
+    }
+];
+
+function loadQuiz() {
+    const container = document.getElementById('quiz-container');
+    if (!container) return;
+    
+    questions.forEach((q, index) => {
+        const qDiv = document.createElement('div');
+        qDiv.className = 'question-card';
+        qDiv.innerHTML = `
+            <div class="question-text">${index + 1}. ${q.q}</div>
+            ${Object.entries(q.options).map(([key, val]) => `
+                <label class="option">
+                    <input type="radio" name="q${index}" value="${key}" onclick="showAnalysis(${index}, '${key}')">
+                    (${key}) ${val}
+                </label>
+            `).join('')}
+            <div id="analysis-${index}" class="analysis"></div>
+        `;
+        container.appendChild(qDiv);
+    });
+}
+
+function showAnalysis(qIndex, selected) {
+    const analysisDiv = document.getElementById(`analysis-${qIndex}`);
+    const q = questions[qIndex];
+    analysisDiv.style.display = 'block';
+    analysisDiv.innerHTML = `
+        <span class="correct-label">CORRECT ANSWER: (${q.correct})</span>
+        <p><strong>DISTRACTOR ANALYSIS:</strong></p>
+        <p>${q.analysis.replace(/OPTION-/g, '<br><strong>OPTION-</strong>')}</p>
+    `;
+}
+
+window.onload = loadQuiz;
+</script>
+</body>
+</html>
