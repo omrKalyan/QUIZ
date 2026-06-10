@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Day 7: Cluster Maintenance & Advanced Networking</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f1f8e9; }
+        .header { text-align: center; background: #388e3c; color: white; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+        .question-card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .question-text { font-weight: bold; font-size: 1.1em; margin-bottom: 15px; }
+        .option { display: block; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+        .option:hover { background-color: #f1f8e9; border-color: #388e3c; }
+        .analysis { display: none; margin-top: 15px; padding: 15px; border-radius: 4px; border-left: 5px solid #388e3c; background-color: #f9fdf9; font-size: 0.95em; }
+        .correct-label { color: #2e7d32; font-weight: bold; margin-bottom: 10px; display: block; }
+        input[type="radio"] { margin-right: 10px; }
+        .back-link { display: inline-block; margin-bottom: 20px; color: #388e3c; text-decoration: none; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">← Back to Menu</a>
+
+<div class="header">
+    <h1>Day 7 Challenge</h1>
+    <p>Networking (CNI/kube-proxy), Maintenance (Drain/Upgrade) & ETCD</p>
+</div>
+
+<div id="quiz-container"></div>
+
+<script>
+const questions = [
+    {
+        q: "What is the primary responsibility of a Container Network Interface (CNI) plugin like Calico in a Kubernetes cluster?",
+        options: {
+            A: "To provide a user interface for monitoring pod traffic.",
+            B: "To assign IP addresses to Pods and ensure they can communicate across nodes in a flat network.",
+            C: "To replace kube-proxy for Service load balancing.",
+            D: "To manage the lifecycle of the container runtime (Docker/Containerd)."
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. While some CNIs have UIs, their primary role is networking. OPTION-B: Correct. CNIs are responsible for the network connectivity of Pods. OPTION-C: This is a distractor. While Calico can handle some routing, kube-proxy still manages the Service-to-Pod mapping by default. OPTION-D: This is a distractor. The runtime is independent of the CNI."
+    },
+    {
+        q: "Which component is responsible for implementing the 'Service' abstraction by managing iptables or IPVS rules to route traffic to Pod Endpoints (SEP)?",
+        options: {
+            A: "kube-scheduler",
+            B: "kubelet",
+            C: "kube-proxy",
+            D: "Cloud Controller Manager"
+        },
+        correct: "C",
+        analysis: "OPTION-A: This is a distractor. The scheduler only handles pod placement. OPTION-B: This is a distractor. The kubelet manages pods on the node but not the cluster-wide network rules. OPTION-C: Correct. kube-proxy watches the API server for changes to Services and Endpoints and updates the host's networking rules. OPTION-D: This is a distractor. This manages cloud-specific resources like LoadBalancers."
+    },
+    {
+        q: "You need to perform a manual ETCD backup. Which command and mandatory flag combination is required to create a snapshot?",
+        options: {
+            A: "etcdctl backup --out snapshot.db",
+            B: "etcdctl snapshot save snapshot.db --endpoints=127.0.0.1:2379 --cacert=[path] --cert=[path] --key=[path]",
+            C: "kubectl backup etcd snapshot.db",
+            D: "etcd-snapshot-tool create --file=snapshot.db"
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. 'backup' is an old, deprecated command. OPTION-B: Correct. In a secured cluster, you must provide the certificates and the snapshot save command. OPTION-C: This is a distractor. kubectl does not have a native etcd backup command. OPTION-D: This is a distractor. There is no such default tool; etcdctl is the standard."
+    },
+    {
+        q: "You find a Pod running on a worker node that was not created via the API server and has no corresponding Deployment or ReplicaSet. It is managed by a file in '/etc/kubernetes/manifests'. What is this called?",
+        options: {
+            A: "Orphan Pod",
+            B: "Static Pod",
+            C: "DaemonSet Pod",
+            D: "Zombie Pod"
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. Orphan pods refer to pods whose owners were deleted. OPTION-B: Correct. Static Pods are managed directly by the kubelet on a specific node by watching a directory. OPTION-C: This is a distractor. DaemonSets are managed by the API server. OPTION-D: This is a distractor. This is not a Kubernetes term."
+    },
+    {
+        q: "When performing a cluster upgrade using 'kubeadm', what is the correct order for upgrading components?",
+        options: {
+            A: "Upgrade all Worker nodes, then the Master node.",
+            B: "Upgrade the Master node (control plane) first, then the Worker nodes.",
+            C: "Upgrade all components simultaneously to prevent version mismatch.",
+            D: "Only upgrade the kubelet; the control plane upgrades automatically."
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. Upgrading workers before the master is unsupported. OPTION-B: Correct. The Control Plane must be at a version equal to or higher than the workers. OPTION-C: This is a distractor. This would cause massive cluster downtime. OPTION-D: This is a distractor. The control plane requires explicit 'kubeadm upgrade' commands."
+    },
+    {
+        q: "You need to perform maintenance on a Worker Node. You want to stop new pods from being scheduled on it but keep the existing pods running. Which command should you use?",
+        options: {
+            A: "kubectl drain <node-name>",
+            B: "kubectl cordon <node-name>",
+            C: "kubectl stop <node-name>",
+            D: "kubectl delete node <node-name>"
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. Drain marks the node as unschedulable AND evicts existing pods. OPTION-B: Correct. Cordon only marks the node as unschedulable (SchedulingDisabled). OPTION-C: This is a distractor. There is no 'kubectl stop' for nodes. OPTION-D: This is a distractor. Deleting the node removes it from the cluster entirely."
+    },
+    {
+        q: "During 'kubectl drain', the command fails because a Pod on the node is using 'emptyDir' local storage. Which flag must be added to force the drain?",
+        options: {
+            A: "--force",
+            B: "--ignore-daemonsets",
+            C: "--delete-emptydir-data",
+            D: "--recursive"
+        },
+        correct: "C",
+        analysis: "OPTION-A: This is a distractor. --force is for deleting pods that won't terminate. OPTION-B: This is a distractor. This is for pods managed by DaemonSets. OPTION-C: Correct. Kubernetes protects data in emptyDir volumes; you must explicitly acknowledge that this data will be deleted. OPTION-D: This is a distractor. Not a valid flag for drain."
+    },
+    {
+        q: "After upgrading the 'kubeadm' tool on a Worker Node, what are the next two components that must be upgraded manually on that node?",
+        options: {
+            A: "etcd and kube-apiserver",
+            B: "kubelet and kubectl",
+            C: "containerd and CNI plugin",
+            D: "CoreDNS and kube-proxy"
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. These are control plane components, not worker components. OPTION-B: Correct. After kubeadm is updated, you must upgrade the kubelet and kubectl to match. OPTION-C: This is a distractor. These are often updated independently of K8s versions. OPTION-D: This is a distractor. kube-proxy is usually updated automatically as a DaemonSet by the master."
+    },
+    {
+        q: "You are restoring an ETCD snapshot. After running 'etcdctl snapshot restore', why is it critical to update the ETCD manifest file (/etc/kubernetes/manifests/etcd.yaml)?",
+        options: {
+            A: "To change the cluster password.",
+            B: "To point the '--data-dir' to the new location of the restored data.",
+            C: "To enable the backup plugin.",
+            D: "To notify the API server that the restore is complete."
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. etcd does not use a master password this way. OPTION-B: Correct. The restore command usually creates a new folder; the etcd pod must be told to use that new folder to start with the restored data. OPTION-C: This is a distractor. There is no 'backup plugin' in the manifest. OPTION-D: This is a distractor. The API server detects etcd status automatically via connectivity."
+    },
+    {
+        q: "A pod is being evicted from a node during a 'drain' operation. If that pod was created directly using 'kubectl run' (no Deployment), what happens to it?",
+        options: {
+            A: "It is moved to another node by the scheduler.",
+            B: "It is deleted and never recreated.",
+            C: "The drain command fails unless the --force flag is used.",
+            D: "It is paused and resumes when the node comes back online."
+        },
+        correct: "C",
+        analysis: "OPTION-A: This is a distractor. Only pods managed by a controller (Deployment/ReplicaSet) are recreated on other nodes. OPTION-B: This is partially true, but the primary behavior is that the command blocks. OPTION-C: Correct. Kubernetes won't delete 'unmanaged' pods during a drain because they would be lost forever. You must use --force to acknowledge this. OPTION-D: This is a distractor. Kubernetes does not 'pause' pods across nodes."
+    }
+];
+
+function loadQuiz() {
+    const container = document.getElementById('quiz-container');
+    if (!container) return;
+    
+    questions.forEach((q, index) => {
+        const qDiv = document.createElement('div');
+        qDiv.className = 'question-card';
+        qDiv.innerHTML = `
+            <div class="question-text">${index + 1}. ${q.q}</div>
+            ${Object.entries(q.options).map(([key, val]) => `
+                <label class="option">
+                    <input type="radio" name="q${index}" value="${key}" onclick="showAnalysis(${index}, '${key}')">
+                    (${key}) ${val}
+                </label>
+            `).join('')}
+            <div id="analysis-${index}" class="analysis"></div>
+        `;
+        container.appendChild(qDiv);
+    });
+}
+
+function showAnalysis(qIndex, selected) {
+    const analysisDiv = document.getElementById(`analysis-${qIndex}`);
+    const q = questions[qIndex];
+    analysisDiv.style.display = 'block';
+    analysisDiv.innerHTML = `
+        <span class="correct-label">CORRECT ANSWER: (${q.correct})</span>
+        <p><strong>DISTRACTOR ANALYSIS:</strong></p>
+        <p>${q.analysis.replace(/OPTION-/g, '<br><strong>OPTION-</strong>')}</p>
+    `;
+}
+
+window.onload = loadQuiz;
+</script>
+</body>
+</html>
