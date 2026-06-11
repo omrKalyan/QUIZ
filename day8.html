@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Day 8: Health, Security & Helm Intro</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f3e5f5; }
+        .header { text-align: center; background: #7b1fa2; color: white; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+        .question-card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .question-text { font-weight: bold; font-size: 1.1em; margin-bottom: 15px; }
+        .option { display: block; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+        .option:hover { background-color: #f3e5f5; border-color: #7b1fa2; }
+        .analysis { display: none; margin-top: 15px; padding: 15px; border-radius: 4px; border-left: 5px solid #7b1fa2; background-color: #fdfbff; font-size: 0.95em; }
+        .correct-label { color: #4a148c; font-weight: bold; margin-bottom: 10px; display: block; }
+        input[type="radio"] { margin-right: 10px; }
+        .back-link { display: inline-block; margin-bottom: 20px; color: #7b1fa2; text-decoration: none; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">← Back to Menu</a>
+
+<div class="header">
+    <h1>Day 8 Challenge</h1>
+    <p>Health Probes, Network Policy, Security Context & Helm</p>
+</div>
+
+<div id="quiz-container"></div>
+
+<script>
+const questions = [
+    {
+        q: "A developer has a Java application that takes 60 seconds to initialize before it can handle traffic. If they only use a Liveness Probe with a 10-second delay, what will likely happen?",
+        options: {
+            A: "The Pod will start correctly but stay in 'Pending' state for 60 seconds.",
+            B: "The Liveness Probe will fail, and Kubernetes will repeatedly restart the container before it finishes initializing.",
+            C: "The Readiness Probe will automatically take over to protect the pod.",
+            D: "Kubernetes will increase the timeout automatically based on app behavior."
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. 'Pending' is for scheduling; once a pod is on a node, it moves to 'Running'. OPTION-B: Correct. A Liveness Probe kills the container if it fails. If the probe starts before the app is ready, it will trigger a restart loop. OPTION-C: This is a distractor. Probes are independent; one does not 'take over' for another. OPTION-D: This is a distractor. Kubernetes does not have 'AI' to auto-adjust probe timers."
+    },
+    {
+        q: "What is the primary difference in behavior between a Liveness Probe and a Readiness Probe failure?",
+        options: {
+            A: "Liveness restarts the container; Readiness removes the Pod from Service endpoints (no traffic).",
+            B: "Liveness is for CPU; Readiness is for Memory.",
+            C: "Readiness is only checked at startup; Liveness is checked throughout the Pod life.",
+            D: "There is no difference; they both restart the container."
+        },
+        correct: "A",
+        analysis: "OPTION-A: Correct. Liveness is about 'health' (restarting if dead). Readiness is about 'traffic' (hiding if busy). OPTION-B: This is a distractor. Both can check any endpoint (HTTP/TCP/Exec) regardless of resource types. OPTION-C: This is a distractor. Both are checked periodically throughout the life of the container (unless Startup Probes are used). OPTION-D: This is a distractor. Their remediations are fundamentally different."
+    },
+    {
+        q: "By default, pods in a Kubernetes cluster can communicate with any other pod. When you apply a NetworkPolicy to a specific Pod, what happens to its traffic behavior?",
+        options: {
+            A: "It remains open until you specifically 'Deny' a certain IP.",
+            B: "An 'Implicit Deny' is applied; only traffic specifically allowed in the policy can reach the Pod.",
+            C: "It only affects external (Internet) traffic, not internal cluster traffic.",
+            D: "The Pod is isolated from the CNI and loses its IP address."
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. NetPols are not 'Blacklists'; they are 'Whitelists'. OPTION-B: Correct. As soon as a NetPol selects a pod, that pod becomes 'isolated' and will reject all traffic not explicitly permitted. OPTION-C: This is a distractor. NetPols primarily manage traffic within the cluster. OPTION-D: This is a distractor. Networking remains active, but the firewall (iptables/eBPF) blocks the packets."
+    },
+    {
+        q: "You want to ensure that a container inside a Pod cannot run as the 'root' user. Where should you define the 'runAsNonRoot: true' setting?",
+        options: {
+            A: "In the ServiceAccount configuration.",
+            B: "In the securityContext section of the Pod or Container spec.",
+            C: "In the ConfigMap associated with the Pod.",
+            D: "In the Dockerfile only."
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. ServiceAccounts handle 'What can this pod DO in the API?', not 'How does the process run on Linux?'. OPTION-B: Correct. The 'securityContext' is where you define UID/GID, privileges, and kernel capabilities. OPTION-C: This is a distractor. ConfigMaps are for application variables, not security enforcement. OPTION-D: This is a distractor. While you can set users in a Dockerfile, Kubernetes securityContext can override it or enforce stricter rules."
+    },
+    {
+        q: "A pod needs to change the system time on the Worker Node it is running on. Which Security Context setting is required?",
+        options: {
+            A: "runAsUser: 0",
+            B: "privileged: true (or adding the CAP_SYS_TIME capability)",
+            C: "allowPrivilegeEscalation: false",
+            D: "readOnlyRootFilesystem: true"
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. Even if you are root (UID 0), modern containers are restricted from touching the host kernel/clock unless extra capabilities are granted. OPTION-B: Correct. Modifying host parameters requires 'privileged' access or specific Linux Capabilities. OPTION-C: This is a distractor. This setting actually *prevents* a process from gaining more rights. OPTION-D: This is a distractor. This relates to disk writes, not system clock access."
+    },
+    {
+        q: "When a Pod is created, it is automatically assigned a ServiceAccount. If no ServiceAccount is specified in the YAML, which one does it use?",
+        options: {
+            A: "The 'admin' ServiceAccount.",
+            B: "The 'default' ServiceAccount in that specific namespace.",
+            C: "A unique ServiceAccount named after the Pod.",
+            D: "No ServiceAccount is assigned."
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. 'admin' is a role, not a default SA. OPTION-B: Correct. Every namespace has a 'default' SA that is automatically mounted into pods unless disabled. OPTION-C: This is a distractor. SAs are not created automatically for every pod. OPTION-D: This is a distractor. One is always assigned unless `automountServiceAccountToken: false` is set."
+    },
+    {
+        q: "You want to allow a Pod to read 'Secrets' in the 'prod' namespace using its ServiceAccount. Which RBAC objects are needed to achieve this?",
+        options: {
+            A: "A Role (to define secret access) and a RoleBinding (to link the SA to that Role).",
+            B: "A NetworkPolicy and a SecretProviderClass.",
+            C: "A ClusterRole and a PodSecurityPolicy.",
+            D: "A Deployment and a Service."
+        },
+        correct: "A",
+        analysis: "OPTION-A: Correct. Role/RoleBinding is the standard way to grant specific API permissions to a ServiceAccount. OPTION-B: This is a distractor. NetPols are for network traffic, not API permissions. OPTION-C: This is a distractor. PSP is deprecated/removed in newer K8s versions and doesn't handle API access. OPTION-D: This is a distractor. These are for running and exposing apps, not permissions."
+    },
+    {
+        q: "What is Helm primarily used for in a Kubernetes environment?",
+        options: {
+            A: "To encrypt the communication between worker nodes.",
+            B: "To act as a Package Manager that bundles YAML manifests into 'Charts' for easy deployment.",
+            C: "To replace the 'kubectl' command entirely.",
+            D: "To manage the hardware resources of the physical servers."
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. This is the job of a Service Mesh (like Istio) or CNI. OPTION-B: Correct. Helm allows you to package, version, and share Kubernetes applications as 'Charts'. OPTION-C: This is a distractor. Helm uses the same API as kubectl; it is a helper, not a replacement. OPTION-D: This is a distractor. Helm manages software on K8s, not the underlying hardware."
+    },
+    {
+        q: "In a Helm Chart, where are the default configuration values (like image tags or replica counts) typically stored?",
+        options: {
+            A: "templates/deployment.yaml",
+            B: "Chart.yaml",
+            C: "values.yaml",
+            D: "helpers.tpl"
+        },
+        correct: "C",
+        analysis: "OPTION-A: This is a distractor. Templates contain the YAML structure with placeholders, not the data itself. OPTION-B: This is a distractor. This file contains metadata about the chart (name, version, etc.). OPTION-C: Correct. values.yaml provides the actual data that fills the templates. OPTION-D: This is a distractor. This file contains reusable code snippets/logic."
+    },
+    {
+        q: "You want to update an existing Helm release named 'frontend' to a newer version of a chart. Which command should you use?",
+        options: {
+            A: "helm install frontend ./my-chart",
+            B: "helm upgrade frontend ./my-chart",
+            C: "helm rollout frontend",
+            D: "helm apply -f ./my-chart"
+        },
+        correct: "B",
+        analysis: "OPTION-A: This is a distractor. 'install' will fail because a release named 'frontend' already exists. OPTION-B: Correct. 'upgrade' is the command to apply changes to an existing release. OPTION-C: This is a distractor. 'rollout' is a kubectl command, not a helm command. OPTION-D: This is a distractor. 'apply' is a kubectl command."
+    }
+];
+
+function loadQuiz() {
+    const container = document.getElementById('quiz-container');
+    if (!container) return;
+    
+    questions.forEach((q, index) => {
+        const qDiv = document.createElement('div');
+        qDiv.className = 'question-card';
+        qDiv.innerHTML = `
+            <div class="question-text">${index + 1}. ${q.q}</div>
+            ${Object.entries(q.options).map(([key, val]) => `
+                <label class="option">
+                    <input type="radio" name="q${index}" value="${key}" onclick="showAnalysis(${index}, '${key}')">
+                    (${key}) ${val}
+                </label>
+            `).join('')}
+            <div id="analysis-${index}" class="analysis"></div>
+        `;
+        container.appendChild(qDiv);
+    });
+}
+
+function showAnalysis(qIndex, selected) {
+    const analysisDiv = document.getElementById(`analysis-${qIndex}`);
+    const q = questions[qIndex];
+    analysisDiv.style.display = 'block';
+    analysisDiv.innerHTML = `
+        <span class="correct-label">CORRECT ANSWER: (${q.correct})</span>
+        <p><strong>DISTRACTOR ANALYSIS:</strong></p>
+        <p>${q.analysis.replace(/OPTION-/g, '<br><strong>OPTION-</strong>')}</p>
+    `;
+}
+
+window.onload = loadQuiz;
+</script>
+</body>
+</html>
